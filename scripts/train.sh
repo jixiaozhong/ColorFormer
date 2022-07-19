@@ -1,0 +1,2 @@
+train_color_two_stage_baseline.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node=4 --master_port=4321 basicsr/train.py -opt options/train/ECCV22/train_colorformer.yml --auto_resume --launcher pytorch
