@@ -8,13 +8,10 @@ import numpy as np
 import einops
 import torch.nn.functional as F
 
+
 class Mlp(nn.Module):
-    def __init__(self,
-                 in_features,
-                 hidden_features=None,
-                 out_features=None,
-                 act_layer=nn.GELU,
-                 drop=0.):
+
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         self.fp16_enabled = False
         out_features = out_features or in_features
@@ -35,27 +32,32 @@ class Mlp(nn.Module):
 
 
 class ColorMemory(nn.Module):
-    def __init__(self, input_dim, embed_dim=768, n_color=512, color_embed=256):
-        super().__init__()
-        color_centers = np.load('memory_build/semantic_color_cluster/color_embed_10k_m512_k64.npy')
 
+    def __init__(self,
+                 input_dim,
+                 embed_dim=768,
+                 n_color=512,
+                 color_embed=256,
+                 color_centers_path='pretrain/color_embed_10000.npy',
+                 semantic_centers_path='pretrain/semantic_embed_10000.npy'):
+        super().__init__()
+        color_centers = np.load(color_centers_path)
         color_centers = color_centers.astype('int')
         color_centers = (color_centers + 128).clip(0, 255)
-        self.color_center1 = nn.Parameter(torch.from_numpy(color_centers[0,:,:]), requires_grad=False)
-        self.color_center2 = nn.Parameter(torch.from_numpy(color_centers[1,:,:]), requires_grad=False)
-        self.color_center3 = nn.Parameter(torch.from_numpy(color_centers[2,:,:]), requires_grad=False)
-        self.color_center4 = nn.Parameter(torch.from_numpy(color_centers[3,:,:]), requires_grad=False)
-
+        self.color_center1 = nn.Parameter(torch.from_numpy(color_centers[0, :, :]), requires_grad=False)
+        self.color_center2 = nn.Parameter(torch.from_numpy(color_centers[1, :, :]), requires_grad=False)
+        self.color_center3 = nn.Parameter(torch.from_numpy(color_centers[2, :, :]), requires_grad=False)
+        self.color_center4 = nn.Parameter(torch.from_numpy(color_centers[3, :, :]), requires_grad=False)
 
         self.a_embed = nn.Embedding(256, color_embed)
         self.b_embed = nn.Embedding(256, color_embed)
 
-        self.color_embed1 = nn.Linear(color_embed*2, color_embed)
-        self.color_embed2 = nn.Linear(color_embed*2, color_embed)
-        self.color_embed3 = nn.Linear(color_embed*2, color_embed)
-        self.color_embed4 = nn.Linear(color_embed*2, color_embed)
+        self.color_embed1 = nn.Linear(color_embed * 2, color_embed)
+        self.color_embed2 = nn.Linear(color_embed * 2, color_embed)
+        self.color_embed3 = nn.Linear(color_embed * 2, color_embed)
+        self.color_embed4 = nn.Linear(color_embed * 2, color_embed)
 
-        semantic_centers = np.load('memory_build/semantic_color_cluster/semantic_embed_10k_m512_k64.npy')
+        semantic_centers = np.load(semantic_centers_path)
         self.semantic_centers = nn.Parameter(torch.from_numpy(semantic_centers), requires_grad=False)
 
         self.semantic_embed = nn.Linear(semantic_centers.shape[-1], embed_dim)
@@ -63,15 +65,15 @@ class ColorMemory(nn.Module):
         self.proj_q = nn.Linear(input_dim, embed_dim)
 
         self.norm1 = nn.LayerNorm(input_dim)
-        self.norm2 = nn.LayerNorm(color_embed+input_dim)
-        self.norm3 = nn.LayerNorm(input_dim+color_embed)
-        self.mlp = Mlp(in_features=color_embed+input_dim, out_features=input_dim+color_embed)
+        self.norm2 = nn.LayerNorm(color_embed + input_dim)
+        self.norm3 = nn.LayerNorm(input_dim + color_embed)
+        self.mlp = Mlp(in_features=color_embed + input_dim, out_features=input_dim + color_embed)
 
-        self.last_conv = nn.Conv2d(input_dim+color_embed, input_dim, kernel_size=1)
+        self.last_conv = nn.Conv2d(input_dim + color_embed, input_dim, kernel_size=1)
 
     def ab2embed(self, color_center):
-        a_embed = self.a_embed(color_center[:,0])
-        b_embed = self.b_embed(color_center[:,1])
+        a_embed = self.a_embed(color_center[:, 0])
+        b_embed = self.b_embed(color_center[:, 1])
         return torch.cat([a_embed, b_embed], dim=-1)
 
     def forward(self, x, cls):
@@ -79,7 +81,6 @@ class ColorMemory(nn.Module):
         x = x.permute(0, 2, 3, 1)
         x = x.view(b, -1, c)
         q = self.proj_q(self.norm1(x))
-
 
         semantic_embed = self.semantic_embed(self.semantic_centers).repeat(x.size(0), 1, 1)
         ab_embed1 = self.ab2embed(self.color_center1)
@@ -109,7 +110,6 @@ class ColorMemory(nn.Module):
         return self.last_conv(x)
 
 
-
 class TRDecoder(nn.Module):
 
     def __init__(self,
@@ -119,24 +119,30 @@ class TRDecoder(nn.Module):
                  output_channel=3,
                  ab_segment_classes=65,
                  blur=True,
-                 last_norm='Weight'):
+                 last_norm='Weight',
+                 color_centers_path='pretrain/color_embed_10000.npy',
+                 semantic_centers_path='pretrain/semantic_embed_10000.npy'):
         super().__init__()
         self.hooks = hooks
         self.nf = nf
         self.blur = blur
         self.last_norm = getattr(NormType, last_norm)
+        self.color_centers_path = color_centers_path
+        self.semantic_centers_path = semantic_centers_path
 
         self.layers = self.make_layers()
-        embed_dim = nf//2
+        embed_dim = nf // 2
 
-        self.last_shuf = CustomPixelShuffle_ICNR(embed_dim, embed_dim, blur=self.blur, norm_type=self.last_norm, scale=4)
+
+        self.last_shuf = CustomPixelShuffle_ICNR(
+            embed_dim, embed_dim, blur=self.blur, norm_type=self.last_norm, scale=4)
 
     def forward(self, x, cls):
         encode_feat = self.hooks[-1].feature
         bs, L, num_feat = encode_feat.shape
 
         encode_feat = encode_feat.view(bs, int(math.sqrt(L)), int(math.sqrt(L)), num_feat)
-        encode_feat = encode_feat.permute(0,3,1,2)
+        encode_feat = encode_feat.permute(0, 3, 1, 2)
         out = self.layers[0](encode_feat)
         out = self.layers[1](out)
         out = self.layers[2](out)
@@ -159,32 +165,37 @@ class TRDecoder(nn.Module):
                 out_c = out_c // 2
             decoder_layers.append(
                 UnetBlockWide(
-                    in_c,
-                    feature_c,
-                    out_c,
-                    hook,
-                    blur=self.blur,
-                    self_attention=False,
-                    norm_type=NormType.Spectral))
+                    in_c, feature_c, out_c, hook, blur=self.blur, self_attention=False, norm_type=NormType.Spectral))
             in_c = out_c
-        decoder_layers.append(ColorMemory(input_dim=in_c, embed_dim=512, n_color=512, color_embed=256))
+        decoder_layers.append(
+            ColorMemory(
+                input_dim=in_c,
+                embed_dim=512,
+                n_color=512,
+                color_embed=256,
+                color_centers_path=self.color_centers_path,
+                semantic_centers_path=self.semantic_centers_path))
         return nn.Sequential(*decoder_layers)
 
 
 @ARCH_REGISTRY.register()
 class ColorFormer(nn.Module):
+
     def __init__(self,
                  encoder_name,
+                 pretrained_path='pretrain/GLH.pth',
                  num_input_channels=3,
                  input_size=(256, 256),
                  nf=512,
                  num_output_channels=3,
                  ab_segment_classes=65,
                  last_norm='Weight',
-                 do_normalize=True):
+                 do_normalize=True,
+                 color_centers_path='pretrain/color_embed_10000.npy',
+                 semantic_centers_path='pretrain/semantic_embed_10000.npy'):
         super().__init__()
 
-        self.encoder = Encoder(encoder_name, ['norm0', 'norm1', 'norm2', 'norm3'])
+        self.encoder = Encoder(encoder_name, ['norm0', 'norm1', 'norm2', 'norm3'], pretrained_path)
         self.encoder.eval()
         test_input = torch.randn(1, num_input_channels, *input_size)
         self.encoder(test_input)
@@ -194,11 +205,12 @@ class ColorFormer(nn.Module):
             input_channel=num_input_channels,
             ab_segment_classes=ab_segment_classes,
             output_channel=num_output_channels,
-            last_norm=last_norm)
-        self.refine_net = nn.Sequential(*[ResBlock(nf//2+3, norm_type=NormType.Spectral)]*1,
-        custom_conv_layer(
-            nf//2+3, num_output_channels, ks=3, use_activ=False, norm_type=NormType.Spectral)
-        )
+            last_norm=last_norm,
+            color_centers_path=color_centers_path,
+            semantic_centers_path=semantic_centers_path)
+        self.refine_net = nn.Sequential(
+            *[ResBlock(nf // 2 + 3, norm_type=NormType.Spectral)] * 1,
+            custom_conv_layer(nf // 2 + 3, num_output_channels, ks=3, use_activ=False, norm_type=NormType.Spectral))
         self.do_normalize = do_normalize
         self.register_buffer('mean', torch.Tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
         self.register_buffer('std', torch.Tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))

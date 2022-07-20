@@ -20,8 +20,10 @@ python3 setup.py develop
 
 
 ## Inference
+1. Download pretrained weights [pretrain](https://drive.google.com/drive/folders/1ktv0DJFteII4kLb7II0c88jW36aE_hBu?usp=sharing) from google drive and put the folder under './'
+2. Run
 ```
-python3 inference/inference_parallel.py --input /path/to/input --output /path/to/output --model_path /path/to/model checkpoint file
+python3 inference/inference_parallel.py --input /path/to/input --output /path/to/output --model_path pretrain/net_g_200000.pth
 ```
 
 
@@ -31,7 +33,7 @@ python3 inference/inference_parallel.py --input /path/to/input --output /path/to
 3. To collect semantic and color priors, run
 ```
 python3 memory_build/inference_GLH.py --input_txt image_paths.txt
-python3 memory_build/semantic_color_clustering.py
+python3 memory_build/semantic_color_clustering.py -m 512 -k 64
 ```
 1. For multi-gpu training, run
 ```

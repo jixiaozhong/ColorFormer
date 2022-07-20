@@ -278,12 +278,12 @@ class UnetBlockWide(nn.Module):
 
 class Encoder(nn.Module):
 
-    def __init__(self, encoder_name, hook_names, **kwargs):
+    def __init__(self, encoder_name, hook_names, pretrained_path='pretrain/GLH.pth', **kwargs):
         super().__init__()
         if encoder_name == "GLHTransformer":
             from basicsr.archs.GLHTransformer import GLHTransformer
             self.arch = GLHTransformer()
-            self.arch.load_state_dict(torch.load('pretrain/GLH.pth', map_location="cpu"), strict=False)
+            self.arch.load_state_dict(torch.load(pretrained_path, map_location="cpu"), strict=False)
         else:
             raise NotImplementedError
 

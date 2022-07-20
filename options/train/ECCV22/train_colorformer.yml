@@ -32,23 +32,26 @@ datasets:
     prefetch_mode: ~
 
   # Uncomment these for validation
-  val:
-    name: coco-validation
-    type: LabSegmentDataset
-    # dataroot_gt: path_to_gt
-    dataroot_gt: /
-    meta_info_file: ''
-    gt_size: 256
-    io_backend:
-      type: disk
+  # val:
+  #   name: ImageNet
+  #   type: LabSegmentDataset
+  #   # dataroot_gt: path_to_gt
+  #   dataroot_gt: /
+  #   meta_info_file: ''
+  #   gt_size: 256
+  #   io_backend:
+  #     type: disk
 
 # network structures
 network_g:
   type: ColorFormer
   encoder_name: GLHTransformer
+  pretrained_path: 'pretrain/GLH.pth'
   last_norm: Spectral
   num_output_channels: 2
   do_normalize: False
+  color_centers_path: 'memory_build/semantic_color_cluster/color_embed_10k_m512_k64.npy'
+  semantic_centers_path: 'memory_build/semantic_color_cluster/semantic_embed_10k_m512_k64.npy'
 
 network_d:
   type: DynamicUNetDiscriminator
@@ -131,9 +134,7 @@ logger:
   wandb:
     project: ~
     resume_id: ~
-  # change val_freq and snapshot_freq for picking model
-  change_freq_iters: 400000
-  change_freq_div: 50
+
 
 # dist training settings
 dist_params:
