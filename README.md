@@ -2,6 +2,8 @@
 
 This is the implementation of ``ColorFormer: Image Colorization via Color Memory assisted Hybrid-attention Transformer'' (ECCV22)
 
+Xiaozhong Ji, Boyuan Jiang, Donghao Luo, Guangpin Tao, Wenqing Chu, Zhifeng Xie, Chengjie Wang, Ying Tai
+
 ![framework](figure/colorformer.png)
 
 This repository is heavily based on  [BasicSR](https://github.com/xinntao/BasicSR).
