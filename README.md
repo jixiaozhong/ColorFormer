@@ -25,7 +25,7 @@ python3 setup.py develop
 1. Download pretrained weights [pretrain](https://drive.google.com/drive/folders/1ktv0DJFteII4kLb7II0c88jW36aE_hBu?usp=sharing) from google drive and put the folder under './'
 2. Run
 ```
-python3 inference/inference_parallel.py --input /path/to/input --output /path/to/output --model_path pretrain/net_g_200000.pth
+python3 inference/inference_colorformer.py --input /path/to/input --output /path/to/output --model_path pretrain/net_g_200000.pth
 ```
 
 
